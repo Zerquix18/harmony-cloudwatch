@@ -18,7 +18,7 @@ const handler = async function () {
 
   const stepName = method.name;
   const requestOptions: APICanarySyntheticsExecuteHttpStepRequestOptions = {
-    hostname: 'api.s0.t.hmny.io',
+    hostname: method.host,
     method: 'POST',
     protocol: 'https:',
     headers: {
@@ -33,8 +33,8 @@ const handler = async function () {
         return reject('Could not get status code');
       }
 
-      if (! (response.statusCode >= 200 || response.statusCode <= 299)) {
-        return reject(`Status code out of range: [${response.statusCode}]: ${response.statusMessage}`);
+      if (! (response.statusCode >= 200 && 299 >= response.statusCode)) {
+        return reject(`Status code out of range (200-299): [${response.statusCode}]: ${response.statusMessage}`);
       }
 
       let responseBody = '';
