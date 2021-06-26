@@ -1,5 +1,6 @@
 import * as cdk from '@aws-cdk/core';
 import * as synthetics from '@aws-cdk/aws-synthetics';
+import * as cloudwatch from '@aws-cdk/aws-cloudwatch';
 import * as path from 'path';
 import * as fs from 'fs';
 // weird! can't use cdk.Duration
@@ -12,6 +13,7 @@ export class HarmonyCloudwatchStack extends cdk.Stack {
     super(scope, id, props);
 
     methods.forEach(method => {
+
       const canary = new synthetics.Canary(this, `Canary_${method.name}`, {
         canaryName: method.name,
         runtime: synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_3_1,
@@ -24,6 +26,21 @@ export class HarmonyCloudwatchStack extends cdk.Stack {
           method: JSON.stringify(method),
         }
       });
+
+      const successAlarm = new cloudwatch.Alarm(this, `Canary_${method.name}SuccessAlarm`, {
+        metric: canary.metricSuccessPercent(),
+        comparisonOperator: cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+        threshold: 90, // %
+        evaluationPeriods: 1, // minute
+      });
+
+      const durationAlarm = new cloudwatch.Alarm(this, `Canary_${method.name}DurationAlarm`, {
+        metric: canary.metricDuration(),
+        comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+        threshold: 30000, // ms
+        evaluationPeriods: 5, // minute
+      });
+
     });
   }
 }
