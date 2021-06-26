@@ -1,51 +1,89 @@
-import { APICanarySynthetics, RCP } from "../models";
-const synthetics = require('synthetics') as APICanarySynthetics;
+import { APICanarySynthetics, APICanarySyntheticsExecuteHttpStepCallback, APICanarySyntheticsExecuteHttpStepRequestOptions, APISynthethicsConfigurationOptions, RCP } from "../models";
+const synthetics = require('Synthetics') as APICanarySynthetics;
+
+type JSONResponse = {
+  [key: string]: string | number | JSONResponse;
+}
 
 const handler = async function () {
   const method = JSON.parse(process.env.method!) as RCP;
 
-  const callback = async function(res: any) {
-    return new Promise<void>((resolve, reject) => {
-      if (res.statusCode < 200 || res.statusCode > 299) {
-          throw res.statusCode + ' ' + res.statusMessage;
+  const payload = {
+    jsonrpc: '2.0',
+    id: 1,
+    method: method.name,
+    params: method.params,
+  };
+  const payloadString = JSON.stringify(payload);
+
+  const stepName = method.name;
+  const requestOptions: APICanarySyntheticsExecuteHttpStepRequestOptions = {
+    hostname: 'api.s0.t.hmny.io',
+    method: 'POST',
+    protocol: 'https:',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: payloadString,
+  };
+
+  const callback: APICanarySyntheticsExecuteHttpStepCallback = async (response) => {
+    const json = await new Promise<JSONResponse>((resolve, reject) => {
+      if (! response.statusCode) {
+        return reject('Could not get status code');
+      }
+
+      if (! (response.statusCode >= 200 || response.statusCode <= 299)) {
+        return reject(`Status code out of range: [${response.statusCode}]: ${response.statusMessage}`);
       }
 
       let responseBody = '';
-      res.on('data', (d: string) => {
-          responseBody += d;
+
+      response.on('data', (d: string) => {
+        responseBody += d;
       });
 
-      res.on('end', () => {
-          // Add validation on 'responseBody' here if required. For ex, your status code is 200 but data might be empty
-          const body = JSON.parse(responseBody);
-          if (! ('id' in body)) {
-            throw 'id not in body';
-          }
+      response.on('end', () => {
+        if (responseBody.length === 0) {
+          return reject('Empty response.');
+        }
 
-          resolve();
-        });
+        const body = JSON.parse(responseBody);
+        resolve(body);
+      });
     });
+
+    if (! ('jsonrpc' in json)) {
+      throw new Error(`'jsonrpc' not found in body.`);
+    }
+
+    if (! ('id' in json)) {
+      throw new Error(`'id' not found in body.`);
+    }
+
+    if (! ('result' in json)) {
+      throw new Error(`'result' not found in body.`);
+    }
+
+    const result = json.result;
+
+    if (method.result !== typeof result) {
+      throw new Error(`'result' in body is not the expected type: ${method.result}`);
+    }
+
+    // all good at this point. Further validation can be added to account for the full shape of `result`
+    // if it's an object.
+
   };
 
-  let stepConfig = {
+  const stepConfig: APISynthethicsConfigurationOptions = {
     includeRequestHeaders: true, 
     includeResponseHeaders: true,
     includeRequestBody: true,
     includeResponseBody: true
   };
 
-  await synthetics.executeHttpStep(
-    method.name,
-    {
-      hostname: 'rpc.s0.t.hmny.io',
-      method: 'POST',
-      path: '/',
-      port: 433,
-      protocol: 'https',
-    },
-    callback,
-    stepConfig
-  )
+  await synthetics.executeHttpStep(stepName, requestOptions, callback, stepConfig);
 };
 
 export { handler };

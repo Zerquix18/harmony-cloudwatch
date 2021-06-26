@@ -356,10 +356,15 @@ export declare class APICanarySyntheticsConfiguration extends SyntheticsConfigur
   disableReportingOptions: (value: boolean) => this;
 }
 
+export interface APICanarySyntheticsExecuteHttpStepRequestOptions extends RequestOptions {
+  body?: string;
+}
+
+export type APICanarySyntheticsExecuteHttpStepCallback = (res: IncomingMessage) => Promise<void>;
 export type APICanarySyntheticsExecuteHttpStep = (
   stepName: string,
-  requestOptions: RequestOptions,
-  callback?: (res: IncomingMessage) => Promise<void>,
+  requestOptions: APICanarySyntheticsExecuteHttpStepRequestOptions,
+  callback?: APICanarySyntheticsExecuteHttpStepCallback,
   stepConfig?: APISynthethicsConfigurationOptions,
 ) => Promise<void>;
 
