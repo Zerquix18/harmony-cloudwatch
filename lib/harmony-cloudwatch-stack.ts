@@ -1,6 +1,7 @@
 import * as cdk from '@aws-cdk/core';
 import * as synthetics from '@aws-cdk/aws-synthetics';
 import * as cloudwatch from '@aws-cdk/aws-cloudwatch';
+import * as s3 from '@aws-cdk/aws-s3';
 import * as path from 'path';
 import * as fs from 'fs';
 // weird! can't use cdk.Duration
@@ -11,6 +12,10 @@ import methods from './methods';
 export class HarmonyCloudwatchStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
+
+    const bucket = new s3.Bucket(this, `CanariesBucket`, {
+      bucketName: 'canaries-logs-bucket',
+    });
 
     let names: string[] = [];
     methods.forEach(method => {
@@ -40,7 +45,8 @@ export class HarmonyCloudwatchStack extends cdk.Stack {
         }),
         environmentVariables: {
           method: JSON.stringify(method),
-        }
+        },
+        artifactsBucketLocation: { bucket },
       });
 
       const successAlarm = new cloudwatch.Alarm(this, `Canary_${method.name}SuccessAlarm`, {
