@@ -12,10 +12,26 @@ export class HarmonyCloudwatchStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+    let names: string[] = [];
     methods.forEach(method => {
+      // canary names cannot be longer than 21 characters and cant have uppercase letters
+      // this is my attempt to have some kind of naming convention that is consistent and represents whats being called
+      // this should probably be reviewed
+      let canaryName = method.name.toLowerCase();
+      if (canaryName.length > 21) {
+        canaryName = canaryName.replace('hmyv2_', '');
+        if (canaryName.length > 21) {
+          canaryName = canaryName.substr(-21);
+        }
+      }
+      if (names.indexOf(canaryName) !== -1) {
+        canaryName = canaryName.substr(-20) + '2';
+      }
+
+      names.push(canaryName);
 
       const canary = new synthetics.Canary(this, `Canary_${method.name}`, {
-        canaryName: method.name,
+        canaryName,
         runtime: synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_3_1,
         schedule: synthetics.Schedule.rate(Duration.minutes(5)),
         test: synthetics.Test.custom({
